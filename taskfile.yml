@@ -1,0 +1,22 @@
+version: '3'
+
+tasks:
+  generate:
+    cmds:
+      - buf generate proto
+      - sqlc generate
+    desc: generate proto files and sqlc files
+  lint:
+    cmd: buf lint proto
+    desc: lint proto files
+  run:
+    cmd: go run ./cmd/server
+    desc: run the server
+    deps: [generate]
+  db:up:
+    cmd: docker compose up -d
+    desc: start the database
+  db:down:
+    cmd: docker compose down
+    desc: stop the database
+

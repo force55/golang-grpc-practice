@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package alert.v1;
+
+option go_package = "crypto-notifier/gen/alert/v1;alertv1";
+
+message Alert {
+  string id = 1;
+  string user_id = 2;
+  string symbol = 3;
+  double target_price = 4;
+  string direction = 5;
+  bool active = 6;
+}
+
+message CreateAlertRequest {
+  string user_id = 1;
+  string symbol = 2;
+  double target_price = 3;
+  string direction = 4;
+}
+
+message CreateAlertResponse {
+  string id = 1;
+}
+
+message ListAlertsRequest {
+  string user_id = 1;
+}
+
+message ListAlertsResponse {
+  repeated Alert alerts = 1;
+}
+
+message DeleteAlertRequest {
+  string id = 1;
+}
+
+message DeleteAlertResponse {}
+
+message SubscribeNotificationsRequest {
+  string user_id = 1;
+}
+
+message NotificationsResponse {
+  string alert_id = 1;
+  string symbol = 2;
+  double price = 3;
+  string direction = 4;
+}
+
+service AlertService {
+  rpc CreateAlert(CreateAlertRequest) returns (CreateAlertResponse);
+  rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse);
+  rpc DeleteAlert(DeleteAlertRequest) returns (DeleteAlertResponse);
+  rpc SubscribeNotifications(SubscribeNotificationsRequest) returns (stream NotificationsResponse);
+}

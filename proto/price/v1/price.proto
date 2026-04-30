@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package price.v1;
+
+option go_package = "crypto-notifier/gen/price/v1;pricev1";
+
+message GetPriceRequest {
+  string symbol = 1;
+}
+
+message GetPriceResponse {
+  string symbol = 1;
+  double price = 2;
+}
+
+message SubscribeRequest {
+  repeated string symbols = 1;
+}
+
+message SubscribeResponse {
+  string symbol = 1;
+  double price = 2;
+  uint64 timestamp = 3;
+}
+
+service PriceService {
+  rpc GetPrice(GetPriceRequest) returns (GetPriceResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}

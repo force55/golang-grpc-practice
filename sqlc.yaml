@@ -1,0 +1,9 @@
+version: "2"
+sql:
+  - engine: postgresql
+    queries: "internal/alert/queries.sql"
+    schema: "migrations"
+    gen:
+      go:
+        package: "alert"
+        out: "internal/alert"

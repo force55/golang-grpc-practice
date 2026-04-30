@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS "users" (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "name" VARCHAR(255) NOT NULL,
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "alerts" (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "user_id" UUID REFERENCES "users" ("id") NOT NULL,
+    "symbol" VARCHAR(255) NOT NULL,
+    "target_price" DECIMAL NOT NULL,
+    "direction" VARCHAR(255) NOT NULL,
+    "active" BOOLEAN DEFAULT TRUE NOT NULL,
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
