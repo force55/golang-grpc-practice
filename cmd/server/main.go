@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto-notifier/gen/alert/v1/alertv1connect"
 	"crypto-notifier/internal/alert"
+	"crypto-notifier/internal/redisbus"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 
 	"connectrpc.com/connect"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/redis/go-redis/v9"
 )
 
 type priceServer struct {
@@ -32,6 +34,7 @@ type config struct {
 	DatabaseURL    string
 	Port           string
 	BinanceSymbols []string
+	RedisURL       string
 }
 
 func loadConfig() config {
@@ -40,6 +43,7 @@ func loadConfig() config {
 		DatabaseURL:    getEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5433/postgres?sslmode=disable"),
 		Port:           getEnv("PORT", "8081"),
 		BinanceSymbols: strings.Split(symbols, ","),
+		RedisURL:       getEnv("REDIS_URL", "localhost:6380"),
 	}
 }
 
@@ -111,6 +115,12 @@ func connectDB(dbUrl string) *sql.DB {
 	return db
 }
 
+func connectRedis(redisUrl string) *redis.Client {
+	return redis.NewClient(&redis.Options{
+		Addr: redisUrl,
+	})
+}
+
 func main() {
 
 	cfg := loadConfig()
@@ -121,13 +131,32 @@ func main() {
 	db := connectDB(cfg.DatabaseURL)
 	defer db.Close()
 
+	rdb := connectRedis(cfg.RedisURL)
+	defer rdb.Close()
+
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		slog.Error("Error connecting to Redis:", "error", err)
+		os.Exit(1)
+	}
+
+	publisher := redisbus.NewPublisher(rdb, "price_updates")
+
 	hub := pricefeed.NewHub()
-	binanceClient := pricefeed.NewBinanceClient(hub, cfg.BinanceSymbols)
+	binanceClient := pricefeed.NewBinanceClient(cfg.BinanceSymbols, publisher)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	go hub.Run(ctx)
+
+	subscriber := redisbus.NewSubscriber(rdb, hub, "price_updates")
+	go func() {
+		err := subscriber.Run(ctx)
+		if err != nil {
+			slog.Error("Error running redis subscriber:", "error", err)
+		}
+	}()
+
 	go func() {
 		err := binanceClient.Run(ctx)
 		if err != nil {
@@ -136,10 +165,11 @@ func main() {
 	}()
 
 	queries := alert.New(db)
-	evaluator := alert.NewEvaluator(hub, queries)
+	invalidator := redisbus.NewRedisCacheInvalidator(rdb, "cache_invalidate")
+	evaluator := alert.NewEvaluator(hub, queries, invalidator)
 	go evaluator.Run(ctx)
 
-	alertService := alert.NewAlertServer(queries, evaluator.NotifCh, evaluator.RefreshCh)
+	alertService := alert.NewAlertServer(queries, evaluator.NotifCh, invalidator)
 
 	mux := http.NewServeMux()
 

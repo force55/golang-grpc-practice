@@ -13,9 +13,9 @@ import (
 
 type AlertServer struct {
 	alertv1connect.UnimplementedAlertServiceHandler
-	q         *Queries
-	notifyCh  chan TriggeredInfo
-	RefreshCh chan struct{}
+	q           *Queries
+	notifyCh    chan TriggeredInfo
+	invalidator CacheInvalidator
 }
 
 // CreateAlert
@@ -38,7 +38,11 @@ func (a *AlertServer) CreateAlert(
 		return nil, err
 	}
 
-	a.RefreshCh <- struct{}{}
+	err = a.invalidator.Publish(ctx)
+	if err != nil {
+		slog.Error("Failed to publish invalidation", "error", err)
+		return nil, err
+	}
 
 	return connect.NewResponse(&alertv1.CreateAlertResponse{
 		Id: created.ID.String(),
@@ -99,16 +103,20 @@ func (a *AlertServer) DeleteAlert(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	a.RefreshCh <- struct{}{}
+	err = a.invalidator.Publish(ctx)
+	if err != nil {
+		slog.Error("Failed to publish invalidation", "error", err)
+		return nil, err
+	}
 
 	return connect.NewResponse(&alertv1.DeleteAlertResponse{}), nil
 }
 
-func NewAlertServer(q *Queries, notifyCh chan TriggeredInfo, refreshCh chan struct{}) *AlertServer {
+func NewAlertServer(q *Queries, notifyCh chan TriggeredInfo, invalidator CacheInvalidator) *AlertServer {
 	return &AlertServer{
-		q:         q,
-		notifyCh:  notifyCh,
-		RefreshCh: refreshCh,
+		q:           q,
+		notifyCh:    notifyCh,
+		invalidator: invalidator,
 	}
 }
 

@@ -8,11 +8,11 @@ import (
 )
 
 type Evaluator struct {
-	hub       *pricefeed.Hub
-	queries   *Queries
-	NotifCh   chan TriggeredInfo
-	cache     map[string][]Alert
-	RefreshCh chan struct{}
+	hub         *pricefeed.Hub
+	queries     *Queries
+	NotifCh     chan TriggeredInfo
+	cache       map[string][]Alert
+	invalidator CacheInvalidator
 }
 
 type TriggeredInfo struct {
@@ -22,13 +22,13 @@ type TriggeredInfo struct {
 	Direction string
 }
 
-func NewEvaluator(hub *pricefeed.Hub, queries *Queries) *Evaluator {
+func NewEvaluator(hub *pricefeed.Hub, queries *Queries, invalidator CacheInvalidator) *Evaluator {
 	return &Evaluator{
-		hub:       hub,
-		queries:   queries,
-		NotifCh:   make(chan TriggeredInfo, 16),
-		cache:     make(map[string][]Alert),
-		RefreshCh: make(chan struct{}, 1),
+		hub:         hub,
+		queries:     queries,
+		NotifCh:     make(chan TriggeredInfo, 16),
+		cache:       make(map[string][]Alert),
+		invalidator: invalidator,
 	}
 }
 
@@ -41,6 +41,8 @@ func (e *Evaluator) Run(ctx context.Context) {
 		slog.Error("Error loading alerts:", "error", err)
 		return
 	}
+
+	invalidateCh, _ := e.invalidator.Subscribe(ctx)
 
 	for {
 		select {
@@ -78,7 +80,7 @@ func (e *Evaluator) Run(ctx context.Context) {
 					break
 				}
 			}
-		case <-e.RefreshCh:
+		case <-invalidateCh:
 			if err := e.LoadCache(ctx); err != nil {
 				slog.Error("Error refreshing alerts:", "error", err)
 			}

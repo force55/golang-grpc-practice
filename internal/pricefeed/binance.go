@@ -13,14 +13,14 @@ import (
 )
 
 type BinanceClient struct {
-	hub     *Hub
-	symbols []string
+	symbols   []string
+	publisher PricePublisher
 }
 
-func NewBinanceClient(hub *Hub, symbols []string) *BinanceClient {
+func NewBinanceClient(symbols []string, publisher PricePublisher) *BinanceClient {
 	return &BinanceClient{
-		hub:     hub,
-		symbols: symbols,
+		symbols:   symbols,
+		publisher: publisher,
 	}
 }
 
@@ -80,11 +80,16 @@ func (c *BinanceClient) connect(ctx context.Context, symbols []string) error {
 			return err
 		}
 
-		c.hub.Publish(PriceUpdate{
+		update := &PriceUpdate{
 			Symbol: event.Symbol,
 			Price:  price,
 			Time:   time.Now().Unix(),
-		})
+		}
+		err = c.publisher.Publish(ctx, *update)
+		if err != nil {
+			slog.Error("Failed to publish price update", "error", err)
+			return err
+		}
 
 	}
 }

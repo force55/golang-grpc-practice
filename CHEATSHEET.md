@@ -80,6 +80,12 @@ curl -X POST http://localhost:8081/alert.v1.AlertService/ListAlerts \
 curl -X POST http://localhost:8081/alert.v1.AlertService/DeleteAlert \
   -H "Content-Type: application/json" \
   -d '{"id": "<ALERT_UUID>"}'
+
+# Підписатись на нотифікації алертів (server streaming)
+buf curl --protocol connect \
+  http://localhost:8081/alert.v1.AlertService/SubscribeNotifications \
+  --schema proto \
+  -d '{"userId": "<UUID>"}'
 ```
 
 ## PostgreSQL (seed data)
