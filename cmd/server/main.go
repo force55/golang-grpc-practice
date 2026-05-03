@@ -35,7 +35,7 @@ type config struct {
 }
 
 func loadConfig() config {
-	symbols := getEnv("BINANCE_SYMBOLS", "btcusdt")
+	symbols := getEnv("BINANCE_SYMBOLS", "btcusdt,ethusdt")
 	return config{
 		DatabaseURL:    getEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5433/postgres?sslmode=disable"),
 		Port:           getEnv("PORT", "8081"),
